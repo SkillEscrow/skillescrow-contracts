@@ -1,0 +1,10 @@
+[advisories]
+ignore = [
+  # crypto-bigint 0.5.5: timing variability in constant-time operations.
+  # Reached only via soroban-env-host -> elliptic-curve 0.13 -> crypto-bigint ^0.5,
+  # i.e. the native Soroban test host used by `cargo test`. It is not part of the
+  # deployed wasm (`cargo tree --target wasm32v1-none -i crypto-bigint` is empty),
+  # and `cargo update` cannot reach the patched 0.7.6 because the 0.5 line is pinned
+  # upstream. Remove this entry once soroban-sdk moves off crypto-bigint 0.5.
+  "RUSTSEC-2026-0387",
+]
