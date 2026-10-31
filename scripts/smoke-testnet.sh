@@ -78,21 +78,34 @@ expect_fail() {
   echo "OK  $label rejected with #$code" >&2
 }
 
+# read_call <invoke args...>: a read-only invoke that retries, because the public RPC
+# occasionally returns nothing. Prints the result without JSON quotes.
+read_call() {
+  local i out
+  for i in 1 2 3 4 5; do
+    if out="$(stellar contract invoke "$@" 2>/dev/null)" && [ -n "$out" ]; then
+      printf '%s' "$out" | tr -d '"'
+      return 0
+    fi
+    sleep 3
+  done
+  die "read call kept failing: $*"
+}
+
 bal() {
-  stellar contract invoke --id "$XLM" --source-account "$MAINT_ID" \
-    --rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" -- balance --id "$1" 2>/dev/null | tr -d '"'
+  read_call --id "$XLM" --source-account "$MAINT_ID" \
+    --rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" -- balance --id "$1"
 }
 
 bounty() {
-  stellar contract invoke --id "$CONTRACT_ID" --source-account "$MAINT_ID" \
-    --rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" -- get_bounty --bounty_id "$1" 2>/dev/null
+  read_call --id "$CONTRACT_ID" --source-account "$MAINT_ID" \
+    --rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" -- get_bounty --id "$1"
 }
 
 active() {
-  stellar contract invoke --id "$CONTRACT_ID" --source-account "$MAINT_ID" \
-    --rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" -- active_bounty --repo_id "$REPO" --issue "$1" 2>/dev/null
+  read_call --id "$CONTRACT_ID" --source-account "$MAINT_ID" \
+    --rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" -- active_bounty --repo_id "$REPO" --issue "$1"
 }
-
 check() { # check <label> <expected> <actual>
   [ "$2" = "$3" ] || die "$1: expected $2, got $3"
   echo "OK  $1 = $3" >&2
@@ -110,7 +123,7 @@ net=$((AMOUNT - fee))
 echo "== A. fund -> release by relayer"
 issue=$((RUN * 10 + 1))
 w0=$(bal "$WINNER"); t0=$(bal "$TREASURY"); c0=$(bal "$CONTRACT_ID")
-id=$(fund "$issue" $((RUN + 3600)) true)
+id=$(fund "$issue" $(($(date +%s) + 3600)) true)
 check "A contract holds the bounty" $((c0 + AMOUNT)) "$(bal "$CONTRACT_ID")"
 check "A issue is locked" "$id" "$(active "$issue")"
 tx "A release (relayer)" "$RELAYER_ID" "$CONTRACT_ID" release \
@@ -125,8 +138,8 @@ expect_fail "A second release" 11 "$MAINT_ID" "$CONTRACT_ID" release \
 
 echo "== B. fund -> refund"
 issue=$((RUN * 10 + 2))
-c0=$(bal "$CONTRACT_ID")
-deadline=$((RUN + 90))
+c0=$(bal "$CONTRACT_ID"); t0=$(bal "$TREASURY")
+deadline=$(($(date +%s) + 120)) # computed now: it must be at least min_duration ahead of the ledger clock
 id=$(fund "$issue" "$deadline" true)
 expect_fail "B early refund" 12 "$MAINT_ID" "$CONTRACT_ID" refund --maintainer "$MAINT" --bounty_id "$id"
 unlock=$((deadline + GRACE + 20))
@@ -135,12 +148,12 @@ while [ "$(date +%s)" -lt "$unlock" ]; do sleep 5; done
 tx "B refund" "$MAINT_ID" "$CONTRACT_ID" refund --maintainer "$MAINT" --bounty_id "$id" >/dev/null
 check "B contract balance restored" "$c0" "$(bal "$CONTRACT_ID")"
 bounty "$id" | grep -q Refunded || die "B bounty is not Refunded"
-check "B treasury took no fee" "$(bal "$TREASURY")" "$(bal "$TREASURY")"
+check "B treasury took no fee" "$t0" "$(bal "$TREASURY")"
 
 echo "== C. fund -> dispute -> resolve 70/30"
 issue=$((RUN * 10 + 3))
 w0=$(bal "$WINNER"); t0=$(bal "$TREASURY"); c0=$(bal "$CONTRACT_ID")
-id=$(fund "$issue" $((RUN + 3600)) false)
+id=$(fund "$issue" $(($(date +%s) + 3600)) false)
 expect_fail "C relayer release without opt-in" 17 "$RELAYER_ID" "$CONTRACT_ID" release \
   --caller "$RELAYER" --bounty_id "$id" --winner "$WINNER"
 tx "C open_dispute (arbiter)" "$ARBITER_ID" "$CONTRACT_ID" open_dispute \
@@ -148,7 +161,7 @@ tx "C open_dispute (arbiter)" "$ARBITER_ID" "$CONTRACT_ID" open_dispute \
 expect_fail "C release while disputed" 11 "$MAINT_ID" "$CONTRACT_ID" release \
   --caller "$MAINT" --bounty_id "$id" --winner "$WINNER"
 tx "C resolve 7000 bps" "$ARBITER_ID" "$CONTRACT_ID" resolve \
-  --arbiter "$ARBITER" --bounty_id "$id" --winner "$WINNER" --winner_bps 7000 >/dev/null
+  --arbiter "$ARBITER" --bounty_id "$id" --winner "\"$WINNER\"" --winner_bps 7000 >/dev/null
 portion=$((AMOUNT * 7000 / 10000))
 cfee=$((portion * FEE_BPS / 10000))
 check "C winner received 70% minus fee" $((w0 + portion - cfee)) "$(bal "$WINNER")"
