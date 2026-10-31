@@ -1,5 +1,8 @@
 #![no_std]
 
+pub mod errors;
+pub mod types;
+
 use soroban_sdk::{contract, contractimpl};
 
 #[contract]
