@@ -1,0 +1,10 @@
+/target
+*.wasm
+.env
+.env.*
+!.env.example
+.stellar/
+*.secret
+.idea/
+.vscode/
+.DS_Store
