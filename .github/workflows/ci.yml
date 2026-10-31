@@ -86,7 +86,7 @@ jobs:
       # sororail-integration-tests is host-only (needs std); it is excluded
       # here rather than being allowed to fail the wasm build.
       - run: cargo build --workspace --exclude sororail-integration-tests --target wasm32v1-none --release
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wasm
           path: target/wasm32v1-none/release/*.wasm
@@ -112,7 +112,7 @@ jobs:
       # with DEPLOYMENTS.md.
       - uses: stellar/stellar-cli@8e402ea28202950b272fbabc34caad4d2f64fe87 # v27.1.0
       - run: make specs
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: specs
           path: dist/specs/*.json
