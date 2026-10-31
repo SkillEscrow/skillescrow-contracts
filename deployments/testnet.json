@@ -1,0 +1,32 @@
+{
+  "network": "testnet",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "contractId": "CASHNDPK5BILKEQUJKKWRP3IUFIX5R6UY5CKNQRTYMB2GQMTZF3J4RKN",
+  "wasmSha256": "2652019099895eb263b952b69e7b82be877a66c5085459c5f26fc7a3b9f99c2f",
+  "sourceCommit": "ac03803c8dbe607cb5d5be081878bd0a33a32f5d",
+  "deployedAt": "2026-10-31T21:55:30Z",
+  "admin": "GD2LR7RR2NH6U7BYXYUO4ADPTGH3YWSG6EPT7QTGDB3GRJ7ZIDCO6UKY",
+  "relayer": "GBDB3HJ2XTVDMIGPGR62YWQ7NGDEZ5UENFKWOHY5FMJUPOXG64TPGJBT",
+  "arbiter": "GBI7STEB3A5B3PNUKPL3ZJXU6U37YYW5YAEWJW7YRVTDYLU3NHMFPIWV",
+  "treasury": "GCQ4LCISKXCUSDYUUJKMKS4GNM36FZTIJ3B3JKJWCMWCU52M2V6U4VY5",
+  "config": {
+    "feeBps": 300,
+    "graceSecs": 60,
+    "minDurationSecs": 60,
+    "maxDurationSecs": 7776000
+  },
+  "tokens": {
+    "USDC": {
+      "issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      "minAmount": "10000000",
+      "maxAmount": "5000000000"
+    },
+    "XLM": {
+      "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "minAmount": "10000000",
+      "maxAmount": "5000000000"
+    }
+  }
+}
