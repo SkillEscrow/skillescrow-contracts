@@ -82,6 +82,12 @@ pub fn set_token_limits(env: &Env, token: &Address, limits: &TokenLimits) {
         .set(&DataKey::Token(token.clone()), limits);
 }
 
+pub fn remove_token_limits(env: &Env, token: &Address) {
+    env.storage()
+        .instance()
+        .remove(&DataKey::Token(token.clone()));
+}
+
 // Bounties (persistent)
 
 pub fn get_bounty(env: &Env, id: u64) -> Result<Bounty, Error> {
@@ -116,6 +122,12 @@ pub fn set_active(env: &Env, repo_id: u64, issue: u64, id: u64) {
     let key = DataKey::ActiveByIssue(repo_id, issue);
     env.storage().persistent().set(&key, &id);
     bump_persistent(env, &key);
+}
+
+pub fn clear_active(env: &Env, repo_id: u64, issue: u64) {
+    env.storage()
+        .persistent()
+        .remove(&DataKey::ActiveByIssue(repo_id, issue));
 }
 
 // Per-token accounting (persistent)
