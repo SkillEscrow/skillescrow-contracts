@@ -1,6 +1,7 @@
 #![no_std]
 
 pub mod errors;
+pub mod events;
 pub mod fees;
 pub mod storage;
 pub mod types;
