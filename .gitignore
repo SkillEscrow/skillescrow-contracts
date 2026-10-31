@@ -1,8 +1,0 @@
-/target
-/dist
-**/*.rs.bk
-.env
-.env.local
-.DS_Store
-.stellar/
-**/test_snapshots/
