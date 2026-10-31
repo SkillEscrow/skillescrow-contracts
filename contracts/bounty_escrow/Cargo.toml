@@ -1,0 +1,18 @@
+﻿[package]
+name = "bounty-escrow"
+description = "SkillEscrow Bounties: per-issue USDC escrow released on PR merge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
