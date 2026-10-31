@@ -8,7 +8,7 @@
 # edit it by hand, regenerate it with this script.
 #
 # The generator's package.json is adapted for the monorepo (scoped private name, exact versions,
-# no own TypeScript, a build that works with TypeScript 6). STELLAR_SDK_VERSION is the exact
+# no own TypeScript, built to dist/ on install). STELLAR_SDK_VERSION is the exact
 # @stellar/stellar-sdk version the client is pinned to.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
@@ -52,8 +52,18 @@ for (const [name, range] of Object.entries(pkg.dependencies)) {
   pkg.dependencies[name] = range.replace(/^[\^~]/, '');
 }
 delete pkg.devDependencies; // the workspace root provides TypeScript
+// Consumers must import built output (dist/ with declarations), not this generated source:
+// TypeScript would otherwise check it under the app's strict compiler options, which generated
+// code does not satisfy. postinstall builds it, so a plain pnpm install leaves it ready.
 // TypeScript 6 requires an explicit rootDir to emit; the generated tsconfig has none.
-pkg.scripts = { build: 'tsc --rootDir src', typecheck: 'tsc --noEmit' };
+pkg.exports = './dist/index.js';
+pkg.types = './dist/index.d.ts';
+delete pkg.typings;
+pkg.scripts = {
+  build: 'tsc --rootDir src',
+  typecheck: 'tsc --noEmit',
+  postinstall: 'tsc --rootDir src',
+};
 fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
 JS
 echo "bindings for $network contract $CONTRACT_ID written to $OUT_DIR"
