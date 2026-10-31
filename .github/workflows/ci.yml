@@ -35,7 +35,7 @@ jobs:
         run: cargo test --all
       - name: Build wasm and report size
         run: |
-          stellar contract build | tee build.log
+          stellar contract build 2>&1 | tee build.log
           grep -E 'Wasm (Hash|Size)' build.log >> "$GITHUB_STEP_SUMMARY"
 
   audit:
