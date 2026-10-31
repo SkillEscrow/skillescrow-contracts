@@ -2,6 +2,7 @@
 
 pub mod errors;
 pub mod fees;
+pub mod storage;
 pub mod types;
 
 use soroban_sdk::{contract, contractimpl};
