@@ -452,5 +452,14 @@ fn allows_new_bounty_on_issue_after_previous_one_is_terminal() {
     // The old bounty keeps its own record.
     assert_eq!(s.client.get_bounty(&first).amount, 10 * UNIT);
     assert_eq!(s.client.get_bounty(&first).status, Status::Released);
+
+    // Refunded.
+    let deadline = s.client.get_bounty(&second).deadline;
+    s.set_time(deadline + GRACE_SECS);
+    s.client.refund(&s.maintainer, &second);
+    assert_eq!(s.client.active_bounty(&REPO, &ISSUE), None);
+    let third = s.fund(REPO, ISSUE, 30 * UNIT);
+    assert_eq!(third, second + 1);
+    assert_eq!(s.client.get_bounty(&second).status, Status::Refunded);
     s.assert_invariant(&s.token);
 }

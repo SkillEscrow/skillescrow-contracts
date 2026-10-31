@@ -252,6 +252,48 @@ impl BountyEscrow {
         events::released(&env, bounty.id, &winner, net, fee, &caller);
         Ok(())
     }
+    /// Returns the full amount to the maintainer once `deadline + grace_secs` has passed.
+    /// No fee is taken. Works while paused.
+    pub fn refund(env: Env, maintainer: Address, bounty_id: u64) -> Result<(), Error> {
+        maintainer.require_auth();
+        storage::bump_instance(&env);
+
+        let config = storage::get_config(&env)?;
+        let mut bounty = storage::get_bounty(&env, bounty_id)?;
+        if bounty.status != Status::Open {
+            return Err(Error::InvalidStatus);
+        }
+        if maintainer != bounty.maintainer {
+            return Err(Error::Unauthorized);
+        }
+        let unlocks_at = bounty
+            .deadline
+            .checked_add(config.grace_secs)
+            .ok_or(Error::Overflow)?;
+        if env.ledger().timestamp() < unlocks_at {
+            return Err(Error::DeadlineNotReached);
+        }
+
+        // Effects.
+        bounty.status = Status::Refunded;
+        storage::set_bounty(&env, &bounty);
+        storage::clear_active(&env, bounty.repo_id, bounty.issue);
+        let mut totals = storage::get_totals(&env, &bounty.token);
+        totals.held = totals
+            .held
+            .checked_sub(bounty.amount)
+            .ok_or(Error::Overflow)?;
+        totals.refunded = totals
+            .refunded
+            .checked_add(bounty.amount)
+            .ok_or(Error::Overflow)?;
+        storage::set_totals(&env, &bounty.token, &totals);
+
+        // Interactions.
+        pay(&env, &bounty.token, &bounty.maintainer, bounty.amount);
+        events::refunded(&env, bounty.id, bounty.amount);
+        Ok(())
+    }
     pub fn get_config(env: Env) -> Result<Config, Error> {
         storage::bump_instance(&env);
         storage::get_config(&env)
