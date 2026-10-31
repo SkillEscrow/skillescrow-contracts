@@ -1,6 +1,6 @@
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
-    token::StellarAssetClient,
+    token::{StellarAssetClient, TokenClient},
     Address, Env,
 };
 
@@ -80,5 +80,49 @@ impl<'a> Setup<'a> {
 
     pub fn mint(&self, token: &Address, to: &Address, amount: i128) {
         StellarAssetClient::new(self.env, token).mint(to, &amount);
+    }
+
+    pub fn balance(&self, token: &Address, who: &Address) -> i128 {
+        TokenClient::new(self.env, token).balance(who)
+    }
+
+    pub fn now(&self) -> u64 {
+        self.env.ledger().timestamp()
+    }
+
+    /// A valid deadline: 14 days from now.
+    pub fn deadline(&self) -> u64 {
+        self.now() + 14 * DAY
+    }
+
+    /// Funds a bounty from the default maintainer with the default token, relayer allowed.
+    pub fn fund(&self, repo_id: u64, issue: u64, amount: i128) -> u64 {
+        self.client.fund_bounty(
+            &self.maintainer,
+            &repo_id,
+            &issue,
+            &self.token,
+            &amount,
+            &self.deadline(),
+            &true,
+        )
+    }
+
+    /// Checks the 6.7 invariant for `token` and returns its totals.
+    pub fn assert_invariant(&self, token: &Address) -> crate::types::Totals {
+        let totals = self.env.as_contract(&self.contract_id, || {
+            crate::storage::get_totals(self.env, token)
+        });
+        assert_eq!(
+            totals.funded,
+            totals.released_net + totals.fees + totals.refunded + totals.held,
+            "funded == released_net + fees + refunded + held"
+        );
+        assert_eq!(
+            totals.held,
+            self.balance(token, &self.contract_id),
+            "held == token.balance(contract)"
+        );
+        totals
     }
 }
