@@ -10,10 +10,11 @@
   "relayer": "GBDB3HJ2XTVDMIGPGR62YWQ7NGDEZ5UENFKWOHY5FMJUPOXG64TPGJBT",
   "arbiter": "GBI7STEB3A5B3PNUKPL3ZJXU6U37YYW5YAEWJW7YRVTDYLU3NHMFPIWV",
   "treasury": "GCQ4LCISKXCUSDYUUJKMKS4GNM36FZTIJ3B3JKJWCMWCU52M2V6U4VY5",
+  "configNote": "Deployed with graceSecs 60 and minDurationSecs 60 so refunds could be smoke-tested in minutes; moved to the values below with set_grace and set_durations on 2026-10-31 after the smoke runs.",
   "config": {
     "feeBps": 300,
-    "graceSecs": 60,
-    "minDurationSecs": 60,
+    "graceSecs": 259200,
+    "minDurationSecs": 86400,
     "maxDurationSecs": 7776000
   },
   "tokens": {
