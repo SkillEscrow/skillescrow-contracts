@@ -118,6 +118,12 @@ pub fn set_active(env: &Env, repo_id: u64, issue: u64, id: u64) {
     bump_persistent(env, &key);
 }
 
+pub fn clear_active(env: &Env, repo_id: u64, issue: u64) {
+    env.storage()
+        .persistent()
+        .remove(&DataKey::ActiveByIssue(repo_id, issue));
+}
+
 // Per-token accounting (persistent)
 
 pub fn get_totals(env: &Env, token: &Address) -> Totals {

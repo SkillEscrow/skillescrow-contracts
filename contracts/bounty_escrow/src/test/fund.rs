@@ -433,3 +433,24 @@ fn insufficient_balance_fails_without_changing_state() {
     // The next successful bounty still gets id 1.
     assert_eq!(s.fund(REPO, ISSUE, 10 * UNIT), 1);
 }
+
+#[test]
+fn allows_new_bounty_on_issue_after_previous_one_is_terminal() {
+    let env = Env::default();
+    let s = Setup::new(&env);
+    let winner = Address::generate(&env);
+
+    // Released.
+    let first = s.fund(REPO, ISSUE, 10 * UNIT);
+    assert_eq!(s.client.active_bounty(&REPO, &ISSUE), Some(first));
+    s.client.release(&s.maintainer, &first, &winner);
+    assert_eq!(s.client.active_bounty(&REPO, &ISSUE), None);
+
+    let second = s.fund(REPO, ISSUE, 20 * UNIT);
+    assert_eq!(second, first + 1);
+    assert_eq!(s.client.active_bounty(&REPO, &ISSUE), Some(second));
+    // The old bounty keeps its own record.
+    assert_eq!(s.client.get_bounty(&first).amount, 10 * UNIT);
+    assert_eq!(s.client.get_bounty(&first).status, Status::Released);
+    s.assert_invariant(&s.token);
+}

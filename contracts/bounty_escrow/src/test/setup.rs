@@ -90,6 +90,10 @@ impl<'a> Setup<'a> {
         self.env.ledger().timestamp()
     }
 
+    pub fn set_time(&self, timestamp: u64) {
+        self.env.ledger().set_timestamp(timestamp);
+    }
+
     /// A valid deadline: 14 days from now.
     pub fn deadline(&self) -> u64 {
         self.now() + 14 * DAY

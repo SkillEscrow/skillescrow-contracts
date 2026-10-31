@@ -27,6 +27,12 @@ fn require_admin(env: &Env, admin: &Address) -> Result<Config, Error> {
     Ok(config)
 }
 
+/// Sends `amount` from the contract to `to`. Skips zero amounts.
+fn pay(env: &Env, token: &Address, to: &Address, amount: i128) {
+    if amount > 0 {
+        TokenClient::new(env, token).transfer(&env.current_contract_address(), to, &amount);
+    }
+}
 #[contractimpl]
 impl BountyEscrow {
     /// One-time setup. `admin` must authorize.
@@ -190,6 +196,61 @@ impl BountyEscrow {
         );
         events::funded(&env, &bounty);
         Ok(id)
+    }
+    /// Pays `winner` the bounty minus the fee, and the fee to the treasury.
+    ///
+    /// Callable by the maintainer, or by the relayer if the maintainer opted in at funding
+    /// time. Still allowed after the deadline, as long as no refund has happened.
+    pub fn release(
+        env: Env,
+        caller: Address,
+        bounty_id: u64,
+        winner: Address,
+    ) -> Result<(), Error> {
+        caller.require_auth();
+        storage::bump_instance(&env);
+
+        let config = storage::get_config(&env)?;
+        let mut bounty = storage::get_bounty(&env, bounty_id)?;
+        if bounty.status != Status::Open {
+            return Err(Error::InvalidStatus);
+        }
+        if caller != bounty.maintainer {
+            if caller != config.relayer {
+                return Err(Error::Unauthorized);
+            }
+            if !bounty.relayer_allowed {
+                return Err(Error::RelayerNotAllowed);
+            }
+        }
+        if winner == bounty.maintainer {
+            return Err(Error::SelfPayout);
+        }
+        let fee = fees::fee(bounty.amount, bounty.fee_bps)?;
+        let net = fees::net(bounty.amount, bounty.fee_bps)?;
+
+        // Effects.
+        bounty.status = Status::Released;
+        bounty.winner = Some(winner.clone());
+        storage::set_bounty(&env, &bounty);
+        storage::clear_active(&env, bounty.repo_id, bounty.issue);
+        let mut totals = storage::get_totals(&env, &bounty.token);
+        totals.held = totals
+            .held
+            .checked_sub(bounty.amount)
+            .ok_or(Error::Overflow)?;
+        totals.released_net = totals
+            .released_net
+            .checked_add(net)
+            .ok_or(Error::Overflow)?;
+        totals.fees = totals.fees.checked_add(fee).ok_or(Error::Overflow)?;
+        storage::set_totals(&env, &bounty.token, &totals);
+
+        // Interactions.
+        pay(&env, &bounty.token, &winner, net);
+        pay(&env, &bounty.token, &config.treasury, fee);
+        events::released(&env, bounty.id, &winner, net, fee, &caller);
+        Ok(())
     }
     pub fn get_config(env: Env) -> Result<Config, Error> {
         storage::bump_instance(&env);
