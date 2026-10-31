@@ -1,6 +1,7 @@
 #![no_std]
 
 pub mod errors;
+pub mod fees;
 pub mod types;
 
 use soroban_sdk::{contract, contractimpl};
