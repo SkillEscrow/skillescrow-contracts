@@ -94,6 +94,9 @@ Topics are `("bounty", <name>)`, plus the bounty id where applicable. Data is a 
 | `paused` / `unpaused` | `bounty`, `paused` / `unpaused` | `admin` |
 | `upgraded` | `bounty`, `upgraded` | `wasm_hash` |
 
+### Indexing notes
+
+All `config` events share the topic prefix `("bounty", "config")` and are told apart by the third topic, the `field` symbol (`token`, `token_rm`, `fee_bps`, `grace`, `durations`, `admin`, `relayer`, `arbiter`, `treasury`). Their data maps differ per field. A decoder that matches only on the first two topics will pick the wrong event shape: on testnet the Stellar CLI labelled a `token` change as `FeeSet` for exactly this reason. **The indexer must dispatch on the `field` topic**, not on the event name from the spec. All other events have distinct topics.
 ## Trust model
 
 Who can do what, stated plainly. None of this is hidden; it is the design.
@@ -116,7 +119,7 @@ funded == released_net + fees + refunded + held
 held   == token.balance(contract)
 ```
 
-`refunded` also carries the maintainer's share of a resolved dispute. The test helper `Setup::assert_invariant` checks both lines after every money-moving test. A randomized property test over sequences of operations comes with the testnet work.
+`refunded` also carries the maintainer's share of a resolved dispute. The test helper `Setup::assert_invariant` checks both lines after every money-moving test, and `src/test/invariants.rs` checks them (plus conservation of each token across all known accounts and the one-active-bounty-per-issue lock) after every step of randomized sequences of fund / release / refund / dispute / resolve / time jumps / fee changes over two tokens.
 
 ## Fee math
 
@@ -145,6 +148,27 @@ Network limits, read from testnet with `stellar network settings` on 2026-10-31 
 
 Contract constants (`src/storage.rs`): on every read and write an entry is extended to `TTL_EXTEND_TO` = 120 days (2,073,600 ledgers) whenever its remaining TTL is below `TTL_THRESHOLD` = 30 days (518,400 ledgers). The longest a bounty must stay readable is the default maximum duration (90 days) plus the default grace period (72 hours) = 93 days, so there are at least 27 days of margin, and 120 days stays under the 180 day network maximum. These relations are checked at compile time.
 
+## Deployments
+
+Public record in `deployments/<network>.json`; keys are never in the repo.
+
+### Testnet
+
+| | |
+|---|---|
+| Contract | `CASHNDPK5BILKEQUJKKWRP3IUFIX5R6UY5CKNQRTYMB2GQMTZF3J4RKN` |
+| Deployed | 2026-10-31, from commit `ac03803`, wasm SHA-256 `2652019099895eb263b952b69e7b82be877a66c5085459c5f26fc7a3b9f99c2f` (24,204 bytes) |
+| Admin / relayer / arbiter / treasury | `se-testnet-admin` / `-relayer` / `-arbiter` / `-treasury`, public addresses in `deployments/testnet.json` |
+| USDC | Circle's testnet issuer `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`, Soroban contract `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`, 1 to 500 units |
+| XLM | native asset contract `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`, 1 to 500 units |
+| Config at deploy | fee 300 bps, **grace 60 s, min duration 60 s**, max duration 90 days |
+| Config now | fee 300 bps, grace 72 h (259200 s), duration window 1 to 90 days (86400 to 7776000 s) |
+
+The USDC issuer comes from Circle's published address list. It was cross-checked on testnet: the issuer account exists (home domain `centre.io`), the derived contract exists, and it reports symbol `USDC` and 7 decimals. Circle's page lists no Soroban contract id; this one is derived with `stellar contract id asset`.
+
+The short grace and minimum duration existed so refunds could be smoke-tested in minutes. After the smoke runs, testnet was moved to the production values with `set_grace` (259200) and `set_durations` (86400, 7776000), which also exercised those setters on chain.
+
+Mainnet has not been deployed. `scripts/deploy-mainnet.sh` exists and is guarded; it needs explicit human approval and the launch steps in BUILD_SPEC.md section 19.4.
 ## Decisions beyond the spec text
 
 Recorded for review; none changes a spec rule.
