@@ -274,3 +274,17 @@ fn unsigned_release_is_rejected() {
     assert_eq!(s.client.get_bounty(&id).status, Status::Open);
     assert_eq!(s.balance(&s.token, &winner), 0);
 }
+
+#[test]
+fn release_on_disputed_rejected() {
+    let env = Env::default();
+    let s = Setup::new(&env);
+    let winner = Address::generate(&env);
+    let id = fund_with(&s, true, 100 * UNIT);
+    s.client.open_dispute(&s.maintainer, &id);
+
+    let r = s.client.try_release(&s.maintainer, &id, &winner);
+    assert_eq!(r, Err(Ok(Error::InvalidStatus)));
+    assert_eq!(s.client.get_bounty(&id).status, Status::Disputed);
+    assert_eq!(s.balance(&s.token, &winner), 0);
+}

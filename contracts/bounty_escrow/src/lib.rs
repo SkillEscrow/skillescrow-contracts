@@ -294,6 +294,97 @@ impl BountyEscrow {
         events::refunded(&env, bounty.id, bounty.amount);
         Ok(())
     }
+    /// Freezes an open bounty: release and refund are blocked until the arbiter resolves it.
+    /// Callable by the maintainer or the arbiter.
+    pub fn open_dispute(env: Env, caller: Address, bounty_id: u64) -> Result<(), Error> {
+        caller.require_auth();
+        storage::bump_instance(&env);
+
+        let config = storage::get_config(&env)?;
+        let mut bounty = storage::get_bounty(&env, bounty_id)?;
+        if bounty.status != Status::Open {
+            return Err(Error::InvalidStatus);
+        }
+        if caller != bounty.maintainer && caller != config.arbiter {
+            return Err(Error::Unauthorized);
+        }
+
+        bounty.status = Status::Disputed;
+        storage::set_bounty(&env, &bounty);
+        events::disputed(&env, bounty.id, &caller);
+        Ok(())
+    }
+
+    /// Splits a disputed bounty. The winner gets `winner_bps` of the amount minus the fee on
+    /// that portion, the treasury gets that fee, and the maintainer gets the rest.
+    /// Works while paused.
+    pub fn resolve(
+        env: Env,
+        arbiter: Address,
+        bounty_id: u64,
+        winner: Option<Address>,
+        winner_bps: u32,
+    ) -> Result<(), Error> {
+        arbiter.require_auth();
+        storage::bump_instance(&env);
+
+        let config = storage::get_config(&env)?;
+        if arbiter != config.arbiter {
+            return Err(Error::Unauthorized);
+        }
+        let mut bounty = storage::get_bounty(&env, bounty_id)?;
+        if bounty.status != Status::Disputed {
+            return Err(Error::InvalidStatus);
+        }
+        if winner_bps > fees::BPS_DENOMINATOR as u32 {
+            return Err(Error::InvalidSplit);
+        }
+        // A winner is only meaningful, and only required, when they are owed something.
+        let winner = if winner_bps > 0 {
+            let w = winner.ok_or(Error::InvalidSplit)?;
+            if w == bounty.maintainer {
+                return Err(Error::SelfPayout);
+            }
+            Some(w)
+        } else {
+            None
+        };
+
+        let portion = fees::portion(bounty.amount, winner_bps)?;
+        let fee = fees::fee(portion, bounty.fee_bps)?;
+        let winner_net = portion - fee;
+        let maintainer_amount = bounty.amount - portion;
+
+        // Effects.
+        bounty.status = Status::Resolved;
+        bounty.winner = winner.clone();
+        storage::set_bounty(&env, &bounty);
+        storage::clear_active(&env, bounty.repo_id, bounty.issue);
+        let mut totals = storage::get_totals(&env, &bounty.token);
+        totals.held = totals
+            .held
+            .checked_sub(bounty.amount)
+            .ok_or(Error::Overflow)?;
+        totals.released_net = totals
+            .released_net
+            .checked_add(winner_net)
+            .ok_or(Error::Overflow)?;
+        totals.fees = totals.fees.checked_add(fee).ok_or(Error::Overflow)?;
+        totals.refunded = totals
+            .refunded
+            .checked_add(maintainer_amount)
+            .ok_or(Error::Overflow)?;
+        storage::set_totals(&env, &bounty.token, &totals);
+
+        // Interactions.
+        if let Some(w) = &winner {
+            pay(&env, &bounty.token, w, winner_net);
+        }
+        pay(&env, &bounty.token, &config.treasury, fee);
+        pay(&env, &bounty.token, &bounty.maintainer, maintainer_amount);
+        events::resolved(&env, bounty.id, winner, winner_net, fee, maintainer_amount);
+        Ok(())
+    }
     pub fn get_config(env: Env) -> Result<Config, Error> {
         storage::bump_instance(&env);
         storage::get_config(&env)

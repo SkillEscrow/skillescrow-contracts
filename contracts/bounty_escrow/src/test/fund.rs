@@ -461,5 +461,14 @@ fn allows_new_bounty_on_issue_after_previous_one_is_terminal() {
     let third = s.fund(REPO, ISSUE, 30 * UNIT);
     assert_eq!(third, second + 1);
     assert_eq!(s.client.get_bounty(&second).status, Status::Refunded);
+
+    // Resolved after a dispute.
+    s.client.open_dispute(&s.maintainer, &third);
+    assert_eq!(s.client.active_bounty(&REPO, &ISSUE), Some(third));
+    s.client.resolve(&s.arbiter, &third, &Some(winner), &5_000);
+    assert_eq!(s.client.active_bounty(&REPO, &ISSUE), None);
+    let fourth = s.fund(REPO, ISSUE, 40 * UNIT);
+    assert_eq!(fourth, third + 1);
+    assert_eq!(s.client.get_bounty(&third).status, Status::Resolved);
     s.assert_invariant(&s.token);
 }
