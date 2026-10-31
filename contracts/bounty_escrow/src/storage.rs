@@ -82,6 +82,12 @@ pub fn set_token_limits(env: &Env, token: &Address, limits: &TokenLimits) {
         .set(&DataKey::Token(token.clone()), limits);
 }
 
+pub fn remove_token_limits(env: &Env, token: &Address) {
+    env.storage()
+        .instance()
+        .remove(&DataKey::Token(token.clone()));
+}
+
 // Bounties (persistent)
 
 pub fn get_bounty(env: &Env, id: u64) -> Result<Bounty, Error> {

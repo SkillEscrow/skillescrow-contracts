@@ -215,3 +215,27 @@ fn unsigned_refund_is_rejected() {
     assert!(matches!(r, Err(Err(_))), "{r:?}");
     assert_eq!(s.client.get_bounty(&id).status, Status::Open);
 }
+
+#[test]
+fn refund_window_follows_the_current_grace_setting() {
+    let env = Env::default();
+    let s = Setup::new(&env);
+    let (id, unlock) = funded(&s);
+    let deadline = unlock - GRACE_SECS;
+
+    // A longer grace set after funding pushes the window out for this bounty too.
+    s.client.set_grace(&s.admin, &(GRACE_SECS + 2 * DAY));
+    s.set_time(unlock);
+    assert_eq!(
+        s.client.try_refund(&s.maintainer, &id),
+        Err(Ok(Error::DeadlineNotReached))
+    );
+    s.set_time(deadline + GRACE_SECS + 2 * DAY - 1);
+    assert_eq!(
+        s.client.try_refund(&s.maintainer, &id),
+        Err(Ok(Error::DeadlineNotReached))
+    );
+    s.set_time(deadline + GRACE_SECS + 2 * DAY);
+    s.client.refund(&s.maintainer, &id);
+    assert_eq!(s.client.get_bounty(&id).status, Status::Refunded);
+}
