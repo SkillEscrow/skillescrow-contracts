@@ -512,4 +512,7 @@ impl BountyEscrow {
 }
 
 #[cfg(test)]
+extern crate std;
+
+#[cfg(test)]
 mod test;
