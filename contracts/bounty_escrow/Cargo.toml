@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "bounty-escrow"
 description = "SkillEscrow Bounties: per-issue USDC escrow released on PR merge"
 version.workspace = true

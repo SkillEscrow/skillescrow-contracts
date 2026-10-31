@@ -1,4 +1,4 @@
-﻿# SkillEscrow Bounties: skillescrow-contracts
+# SkillEscrow Bounties: skillescrow-contracts
 
 > Paid GitHub issues with AI PR triage, settled in USDC on Stellar/Soroban.
 
